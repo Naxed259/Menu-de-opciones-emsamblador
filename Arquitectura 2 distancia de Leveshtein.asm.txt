@@ -1,0 +1,180 @@
+
+; You may customize this and other start-up templates; 
+; The location of this template is c:\emu8086\inc\0_com_template.txt
+
+org 100h
+
+; add your code here
+
+
+Inicio:
+    call Menu
+    call Entrada
+    jmp Inicio
+
+Menu:
+    ; Ajuste de video
+    mov AH, 0           ; instruccion fila
+    mov AL, 03h         ; 00 o 03 para modo texto
+    int 10h             ; interrupcion para video
+
+    ; Ajuste del cursor
+    mov DH, 2           ; numero de fila en dh
+    mov DL, 10          ; numero de columna en dl
+    mov BH, 0           ; pagina en bh de 0 a 7
+    mov AH, 2           ; instruccion fila
+    int 10h             ; interrupcion para video 
+
+    ; Mostrar mensaje de menu de opciones:
+    mov AH, 9
+    mov DX, OFFSET TITULO
+    INT 21H
+    
+Ingreso:
+    ; Permitir que se ingrese un dato en $ y que lo guarde
+    mov AH, 1
+    INT 21H
+    cmp AL, 31h
+    MOV [0], AL
+    ret
+
+; Verificar el dato ingresado
+
+Entrada:
+    mov AL, [0]
+    cmp AL, '1'
+    je Leveshtein
+    cmp AL, '2'
+    je Salida
+    jmp Invalida 
+
+Invalida:
+    ; Opcion invalida
+    mov AH, 9
+    mov DX, OFFSET OPCIONINVALIDA
+    INT 21H
+    mov AH, 00h         ; esperar keystroke
+    int 16h             ; interrupcion de espera
+    ret
+
+; Etiquetas
+Leveshtein:
+    mov AH, 9
+    mov DX, OFFSET OPCIONLEV
+    INT 21H
+Cadena1:    
+    ; Solicitar la primera cadena
+    mov ah, 9
+    mov dx, offset msg1
+    int 21h
+
+    mov ah, 0Ah           ; Función para leer una cadena
+    int 21h
+    
+    mov al, [msg1 + 1]
+    cmp al, 5
+    jle Cadena2
+    
+    mov ah, 9
+    mov dx, offset error
+    int 21h
+    jmp Cadena1
+
+Cadena2:    
+    ; Solicitar la segunda cadena
+    mov ah, 9
+    mov dx, offset msg2
+    int 21h
+
+    mov ah, 0Ah           ; Función para leer una cadena
+    int 21h
+    
+    mov al, [msg2 + 1]
+    cmp al, 5
+    jle Verificarcadena
+    
+    mov ah, 9
+    mov dx, offset error
+    int 21h
+    jmp Cadena2
+    
+Verificarcadena:
+    mov al, [msg1 + 1]
+    mov bl, [msg2 + 1]
+    cmp al, bl
+    je Ingresocadena
+    
+    mov ah, 9
+    mov dx, offset errorlong
+    int 21h
+    jmp Leveshtein    
+
+Ingresocadena:    
+    ; Inicializar los punteros a las cadenas
+    lea si, msg1 + 2    ; +2 para saltar el tamaño de la cadena
+    lea di, msg2 + 2    ; +2 para saltar el tamaño de la cadena
+
+    ; Inicializar la diferencia a 0
+    mov diferencia, 0
+
+    ; Comparar las cadenas
+    mov cx, 5           ; Longitud de las cadenas (5 en este caso)
+
+comparar:
+    mov al, [si]       ; Cargar el carácter de la primera cadena
+    mov bl, [di]       ; Cargar el carácter de la segunda cadena
+    cmp al, bl         ; Comparar los caracteres
+    jne diferente       ; Si son diferentes, saltar a 'diferente'
+    
+    ; Siguiente carácter
+    inc si
+    inc di
+    loop comparar       ; Repetir para la siguiente posición
+
+    jmp mostrar         ; Salta a mostrar la diferencia si no hay diferencias
+
+diferente:
+    inc diferencia      ; Incrementar la diferencia
+
+    ; Siguiente carácter
+    inc si
+    inc di
+    loop comparar       ; Repetir para la siguiente posición
+
+mostrar:
+    ; Convertir la diferencia a un carácter
+    mov ah, 9
+    mov dx, offset msgdif
+    int 21h
+    
+    mov al, diferencia  ; Cargar la diferencia
+    add al, 30h        ; Convertir a carácter ASCII (suma de '0' a la diferencia)
+    mov ah, 2
+    mov dl, al ; Colocar el carácter en el mensaje
+    int 21h
+    mov AH, 00h         ; esperar keystroke
+    int 16h             ; interrupcion de espera
+    ret
+    
+Salida:
+    mov AH, 9
+    mov DX, OFFSET OPCIONSALIDA
+    INT 21H
+    mov AH, 00h         ; esperar keystroke
+    int 16h             ; interrupcion de espera
+
+
+TITULO DB 0ah, 0dh, "Menu Principal:"
+OPCION1 DB 0ah, 0dh, "1.Distancia de Leveshtein"
+OPCION2 DB 0ah, 0dh, "2.Salida"
+SELECCION DB 0ah, 0dh, "Seleccione una opcion...", "$"
+OPCIONLEV DB 0ah, 0dh, "Leveshtein", 0ah, 0dh, "$"  
+OPCIONSALIDA DB 0ah, 0dh, "Adios...", "$"
+OPCIONINVALIDA DB 0ah, 0dh, "Opcion invalida", "$"
+enter db 0ah, 0dh, "$"
+msg1 db "Por favor ingrese una cadena de caracteres: ", "$"
+msg2 db 0ah, 0dh, "Por favor ingrese otra cadena de caracteres: ", "$"
+msgdif db 0ah, 0dh, "La distancia de Levenshtein es: ", "$"
+diferencia db 0
+error db 0ah, 0dh, 'No puede ingresar mas de 5 caracteres', '$'
+errorlong db 0ah, 0dh, 'La longitud de las cadenas no coincide', '$'
